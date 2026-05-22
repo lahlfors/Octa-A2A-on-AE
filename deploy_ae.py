@@ -175,7 +175,7 @@ def main():
         "agent_framework": "google-adk",
         "staging_bucket": storage,
         "requirements": [
-            "google-adk==1.34.0",
+            "google-adk[extensions]==1.34.0",
             "google-cloud-aiplatform[agent_engines,adk]>=1.153.0",
             "a2a-sdk==1.0.3",
             "pydantic==2.12.5",
