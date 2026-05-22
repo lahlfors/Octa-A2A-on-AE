@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# --- Google Cloud SDK json_format.MessageToJson Monkeypatch ---
+# --- Google Cloud SDK json_format Monkeypatches ---
 try:
     from google.protobuf import json_format
     orig_message_to_json = json_format.MessageToJson
+    orig_message_to_dict = json_format.MessageToDict
 
     def custom_message_to_json(message, *args, **kwargs):
         if not hasattr(message, "DESCRIPTOR"):
-            # If the message is a legacy Pydantic model, serialize it directly to JSON
             if hasattr(message, "model_dump_json"):
                 return message.model_dump_json()
             elif hasattr(message, "json"):
@@ -28,11 +28,21 @@ try:
             return json.dumps(message)
         return orig_message_to_json(message, *args, **kwargs)
 
+    def custom_message_to_dict(message, *args, **kwargs):
+        if not hasattr(message, "DESCRIPTOR"):
+            if hasattr(message, "model_dump"):
+                return message.model_dump()
+            elif hasattr(message, "dict"):
+                return message.dict()
+            return dict(message)
+        return orig_message_to_dict(message, *args, **kwargs)
+
     json_format.MessageToJson = custom_message_to_json
-    print("✓ Applied google.protobuf.json_format.MessageToJson monkeypatch for legacy A2A compatibility.")
+    json_format.MessageToDict = custom_message_to_dict
+    print("✓ Applied google.protobuf.json_format MessageToJson/MessageToDict monkeypatches for legacy A2A compatibility.")
 except Exception as e:
     print(f"⚠️ Failed to apply json_format monkeypatch: {e}")
-# --------------------------------------------------------------
+# --------------------------------------------------
 
 import os
 import json
