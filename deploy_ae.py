@@ -85,6 +85,7 @@ def main():
     config = {
         "display_name": "Okta Time Agent",
         "agent_framework": "google-adk",
+        "staging_bucket": storage,
         "requirements": [
             "google-adk>=2.0.0",
             "google-cloud-aiplatform[agent_engines,adk]>=1.143.0",
