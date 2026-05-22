@@ -12,6 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# --- A2A SDK v1.x Compatibility Monkeypatch ---
+try:
+    import a2a.types as a2a_types
+    if not hasattr(a2a_types, "TransportProtocol"):
+        class DummyTransportProtocol:
+            http_json = "HTTP_JSON"
+            HTTP_JSON = "HTTP_JSON"
+            HTTP = "HTTP"
+            SSE = "SSE"
+        a2a_types.TransportProtocol = DummyTransportProtocol
+        print("✓ Applied TransportProtocol monkeypatch for a2a-sdk compatibility.")
+except ImportError:
+    pass
+# ----------------------------------------------
+
 import os
 import json
 import sys
