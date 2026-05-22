@@ -47,6 +47,43 @@ try:
             return orig_get(self, name)
         AgentCard.__getattribute__ = custom_getattr
         print("✓ Applied AgentCard attributes monkeypatch for a2a-sdk compatibility.")
+
+    # 3. Monkeypatch A2aAgent custom __getstate__ & __setstate__ for cloudpickle compatibility
+    from vertexai.preview.reasoning_engines.templates.a2a import A2aAgent
+    
+    def a2a_agent_getstate(self):
+        state = self.__dict__.copy()
+        if "agent_card" in state and state["agent_card"] is not None:
+            state["agent_card_bytes"] = state["agent_card"].SerializeToString()
+            del state["agent_card"]
+        if "_tmpl_attrs" in state:
+            # Copy dict to avoid mutating in-place references
+            tmpl = dict(state["_tmpl_attrs"])
+            if "agent_card" in tmpl and tmpl["agent_card"] is not None:
+                tmpl["agent_card_bytes"] = tmpl["agent_card"].SerializeToString()
+                del tmpl["agent_card"]
+            state["_tmpl_attrs"] = tmpl
+        return state
+
+    def a2a_agent_setstate(self, state):
+        from a2a.types import AgentCard
+        if "agent_card_bytes" in state:
+            card = AgentCard()
+            card.ParseFromString(state["agent_card_bytes"])
+            state["agent_card"] = card
+            del state["agent_card_bytes"]
+        if "_tmpl_attrs" in state and "agent_card_bytes" in state["_tmpl_attrs"]:
+            tmpl = dict(state["_tmpl_attrs"])
+            card = AgentCard()
+            card.ParseFromString(tmpl["agent_card_bytes"])
+            tmpl["agent_card"] = card
+            del tmpl["agent_card_bytes"]
+            state["_tmpl_attrs"] = tmpl
+        self.__dict__.update(state)
+
+    A2aAgent.__getstate__ = a2a_agent_getstate
+    A2aAgent.__setstate__ = a2a_agent_setstate
+    print("✓ Applied A2aAgent custom serialization monkeypatch for cloudpickle compatibility.")
 except ImportError:
     pass
 # ----------------------------------------------
