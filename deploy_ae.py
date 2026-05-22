@@ -74,19 +74,31 @@ def main():
 
     # 2. Define Agent Skill & Create Card
     print("Defining Agent Skill and Card...")
-    agent_skill = AgentSkill(
-        id="okta_time_retrieval",
-        name="Time Retrieval Tool",
-        description="Retrieves the current time globally for any city and handles session inspection.",
-        tags=["time", "clock", "session", "auth"],
-        examples=["What time is it in London?", "Inspect my session auth details"],
-    )
-
-    agent_card = create_agent_card(
-        agent_name="Okta Protected Time Agent",
-        description="A secure, Okta-authenticated agent built to showcase GE-managed 3P OAuth.",
-        skills=[agent_skill],
-    )
+    from a2a.types import AgentCard
+    from google.protobuf.json_format import ParseDict
+    
+    agent_card_dict = {
+        "name": "Okta Protected Time Agent",
+        "description": "A secure, Okta-authenticated agent built to showcase GE-managed 3P OAuth.",
+        "documentation_url": "http://localhost:9999/",
+        "version": "1.0.0",
+        "default_input_modes": ["text/plain"],
+        "default_output_modes": ["application/json"],
+        "capabilities": {
+            "streaming": True
+        },
+        "skills": [
+            {
+                "id": "okta_time_retrieval",
+                "name": "Time Retrieval Tool",
+                "description": "Retrieves the current time globally for any city and handles session inspection.",
+                "tags": ["time", "clock", "session", "auth"],
+                "examples": ["What time is it in London?", "Inspect my session auth details"]
+            }
+        ]
+    }
+    agent_card = AgentCard()
+    ParseDict(agent_card_dict, agent_card)
 
     # 3. Instantiate A2aAgent with Custom Executor
     print("Wrapping ADK Agent with custom executor...")
