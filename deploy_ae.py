@@ -98,7 +98,7 @@ def main():
 
     # 2. Define Agent Skill & Create Card
     print("Defining Agent Skill and Card...")
-    from a2a.types import AgentCard
+    from a2a import types as a2a_types
     from google.protobuf.json_format import ParseDict
     
     agent_card_dict = {
@@ -121,7 +121,7 @@ def main():
             }
         ]
     }
-    agent_card = AgentCard()
+    agent_card = a2a_types.AgentCard()
     ParseDict(agent_card_dict, agent_card)
 
     # 3. Instantiate A2aAgent with Custom Executor
