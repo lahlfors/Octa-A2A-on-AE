@@ -12,81 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# --- A2A SDK v1.x Compatibility Monkeypatch ---
+# --- Google Cloud SDK json_format.MessageToJson Monkeypatch ---
 try:
-    import a2a.types as a2a_types
-    
-    # 1. Monkeypatch TransportProtocol if missing
-    if not hasattr(a2a_types, "TransportProtocol"):
-        class DummyTransportProtocol:
-            http_json = "HTTP_JSON"
-            HTTP_JSON = "HTTP_JSON"
-            HTTP = "HTTP"
-            SSE = "SSE"
-        a2a_types.TransportProtocol = DummyTransportProtocol
-        print("✓ Applied TransportProtocol monkeypatch for a2a-sdk compatibility.")
+    from google.protobuf import json_format
+    orig_message_to_json = json_format.MessageToJson
 
-    # 2. Monkeypatch AgentCard properties and url redirection
-    if hasattr(a2a_types, "AgentCard"):
-        AgentCard = a2a_types.AgentCard
-        AgentCard.preferred_transport = None
-        AgentCard.supports_authenticated_extended_card = False
-        
-        orig_set = AgentCard.__setattr__
-        def custom_setattr(self, name, val):
-            if name == "url":
-                self.documentation_url = val
-            else:
-                orig_set(self, name, val)
-        AgentCard.__setattr__ = custom_setattr
+    def custom_message_to_json(message, *args, **kwargs):
+        if not hasattr(message, "DESCRIPTOR"):
+            # If the message is a legacy Pydantic model, serialize it directly to JSON
+            if hasattr(message, "model_dump_json"):
+                return message.model_dump_json()
+            elif hasattr(message, "json"):
+                return message.json()
+            import json
+            return json.dumps(message)
+        return orig_message_to_json(message, *args, **kwargs)
 
-        orig_get = AgentCard.__getattribute__
-        def custom_getattr(self, name):
-            if name == "url":
-                return self.documentation_url
-            return orig_get(self, name)
-        AgentCard.__getattribute__ = custom_getattr
-        print("✓ Applied AgentCard attributes monkeypatch for a2a-sdk compatibility.")
-
-    # 3. Monkeypatch A2aAgent custom __getstate__ & __setstate__ for cloudpickle compatibility
-    from vertexai.preview.reasoning_engines.templates.a2a import A2aAgent
-    
-    def a2a_agent_getstate(self):
-        state = self.__dict__.copy()
-        if "agent_card" in state and state["agent_card"] is not None:
-            state["agent_card_bytes"] = state["agent_card"].SerializeToString()
-            del state["agent_card"]
-        if "_tmpl_attrs" in state:
-            # Copy dict to avoid mutating in-place references
-            tmpl = dict(state["_tmpl_attrs"])
-            if "agent_card" in tmpl and tmpl["agent_card"] is not None:
-                tmpl["agent_card_bytes"] = tmpl["agent_card"].SerializeToString()
-                del tmpl["agent_card"]
-            state["_tmpl_attrs"] = tmpl
-        return state
-
-    def a2a_agent_setstate(self, state):
-        from a2a.types import AgentCard
-        if "agent_card_bytes" in state:
-            card = AgentCard()
-            card.ParseFromString(state["agent_card_bytes"])
-            state["agent_card"] = card
-            del state["agent_card_bytes"]
-        if "_tmpl_attrs" in state and "agent_card_bytes" in state["_tmpl_attrs"]:
-            tmpl = dict(state["_tmpl_attrs"])
-            card = AgentCard()
-            card.ParseFromString(tmpl["agent_card_bytes"])
-            tmpl["agent_card"] = card
-            del tmpl["agent_card_bytes"]
-            state["_tmpl_attrs"] = tmpl
-        self.__dict__.update(state)
-
-    A2aAgent.__getstate__ = a2a_agent_getstate
-    A2aAgent.__setstate__ = a2a_agent_setstate
-    print("✓ Applied A2aAgent custom serialization monkeypatch for cloudpickle compatibility.")
-except ImportError:
-    pass
-# ----------------------------------------------
+    json_format.MessageToJson = custom_message_to_json
+    print("✓ Applied google.protobuf.json_format.MessageToJson monkeypatch for legacy A2A compatibility.")
+except Exception as e:
+    print(f"⚠️ Failed to apply json_format monkeypatch: {e}")
+# --------------------------------------------------------------
 
 import os
 import json
@@ -135,31 +81,19 @@ def main():
 
     # 2. Define Agent Skill & Create Card
     print("Defining Agent Skill and Card...")
-    from a2a import types as a2a_types
-    from google.protobuf.json_format import ParseDict
-    
-    agent_card_dict = {
-        "name": "Okta Protected Time Agent",
-        "description": "A secure, Okta-authenticated agent built to showcase GE-managed 3P OAuth.",
-        "documentation_url": "http://localhost:9999/",
-        "version": "1.0.0",
-        "default_input_modes": ["text/plain"],
-        "default_output_modes": ["application/json"],
-        "capabilities": {
-            "streaming": True
-        },
-        "skills": [
-            {
-                "id": "okta_time_retrieval",
-                "name": "Time Retrieval Tool",
-                "description": "Retrieves the current time globally for any city and handles session inspection.",
-                "tags": ["time", "clock", "session", "auth"],
-                "examples": ["What time is it in London?", "Inspect my session auth details"]
-            }
-        ]
-    }
-    agent_card = a2a_types.AgentCard()
-    ParseDict(agent_card_dict, agent_card)
+    agent_skill = AgentSkill(
+        id="okta_time_retrieval",
+        name="Time Retrieval Tool",
+        description="Retrieves the current time globally for any city and handles session inspection.",
+        tags=["time", "clock", "session", "auth"],
+        examples=["What time is it in London?", "Inspect my session auth details"],
+    )
+
+    agent_card = create_agent_card(
+        agent_name="Okta Protected Time Agent",
+        description="A secure, Okta-authenticated agent built to showcase GE-managed 3P OAuth.",
+        skills=[agent_skill],
+    )
 
     # 3. Instantiate A2aAgent with Custom Executor
     print("Wrapping ADK Agent with custom executor...")
@@ -177,7 +111,7 @@ def main():
         "requirements": [
             "google-adk[extensions]==1.34.0",
             "google-cloud-aiplatform[agent_engines,adk]>=1.153.0",
-            "a2a-sdk==1.0.3",
+            "a2a-sdk==0.3.26",
             "pydantic==2.12.5",
             "cloudpickle==3.1.2",
             "pytz",
