@@ -95,17 +95,35 @@ class AdkAgentToA2AExecutor(agent_execution.AgentExecutor):
 
     # --- Extract Okta OAuth 2.0 Token ---
     headers = context.call_context.state.get("headers", {})
-    auth_header = headers.get("Authorization") or headers.get("authorization")
     token = None
-    
-    if auth_header and auth_header.startswith("Bearer "):
-      token = auth_header[len("Bearer "):]
-      
+
+    # 1. Check Custom HTTP Headers first to bypass GCP IAM protection conflicts
+    app_token = (
+        headers.get("X-App-Token") or 
+        headers.get("x-app-token") or 
+        headers.get("X-A2A-Token") or 
+        headers.get("x-a2a-token")
+    )
+    if app_token:
+      token = app_token
+      if token.lower().startswith("bearer "):
+        token = token.split(None, 1)[1]
+      logger.info("[DEBUG] Okta OAuth Token successfully extracted from custom bypass header.")
+
+    # 2. Fallback to standard Authorization header (useful for local test sandboxes)
+    if not token:
+      auth_header = headers.get("Authorization") or headers.get("authorization")
+      if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[len("Bearer "):]
+        logger.info("[DEBUG] Okta OAuth Token extracted from standard Authorization Bearer header.")
+
+    # 3. Fallback to request scope auth object
     if not token:
       auth_obj = context.call_context.state.get("auth")
       if auth_obj and isinstance(auth_obj, str):
         token = auth_obj
-        
+
+    # 4. Fallback to query metadata
     if not token:
       token = context.metadata.get("access_token")
 

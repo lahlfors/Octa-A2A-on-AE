@@ -128,6 +128,34 @@ class TestOktaA2AIntegration(unittest.IsolatedAsyncioTestCase):
             "HTTP Headers should be stored in session state."
         )
 
+    async def test_token_extraction_from_custom_bypass_header(self):
+        """Verifies the executor prioritizes custom X-App-Token headers to avoid Google Cloud IAM conflicts."""
+        headers = {
+            "X-App-Token": "Bearer custom_okta_token_xyz",
+            "Content-Type": "application/json"
+        }
+        mock_context = MockRequestContext(headers=headers)
+        mock_queue = MockEventQueue()
+
+        executor = AdkAgentToA2AExecutor()
+        async def mock_run_async(*args, **kwargs):
+            yield MockEvent("Response.")
+        executor._runner.run_async = mock_run_async
+
+        await executor.execute(mock_context, mock_queue)
+
+        session = await executor._runner.session_service.get_session(
+            app_name=executor._agent.name,
+            user_id=executor._user_id,
+            session_id=mock_context.context_id
+        )
+
+        self.assertEqual(
+            session.state.get("auth_token"),
+            "custom_okta_token_xyz",
+            "Should extract token from the custom X-App-Token bypass header."
+        )
+
     async def test_token_extraction_from_metadata_fallback(self):
         """Verifies the executor falls back to metadata access_token when headers are missing."""
         mock_context = MockRequestContext(headers={}, metadata={"access_token": "fallback_token_789"})
