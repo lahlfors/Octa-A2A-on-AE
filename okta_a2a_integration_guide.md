@@ -51,6 +51,15 @@ The managed Okta token is passed from Gemini Enterprise to the Agent Engine cont
     ```
     This fully resolves the "Gap" without requiring hardcoded headers or breaking platform-level container security!
 
+### 🎛️ Architectural Taxonomy: Base A2A vs. High-Level ADK Toolsets
+
+The delivery mechanism of OAuth credentials in Agent Engine depends heavily on the level of abstraction you utilize:
+
+| Integration Path | Abstraction Level | Token Extraction Point | Developer Action Required |
+| :--- | :--- | :--- | :--- |
+| **High-Level ADK Toolsets** *(e.g. `ApplicationIntegrationToolset` for ServiceNow)* | **High Abstraction** | Automatically handled by underlying toolset adapters inside the ADK runtime. | Retrieve the token directly from `tool_context.state` using the toolset's well-known key pattern (e.g., `temp:AUTH_ID_0`) via a token injection callback. |
+| **Generic A2A Implementation** *(e.g., Okta time agent)* | **Low Abstraction (Closer to Metal)** | Passed as standard HTTP `Authorization: Bearer <token>` in incoming requests. | Write a custom `AgentExecutor` (like `AdkAgentToA2AExecutor`) to explicitly parse headers from `call_context.state['headers']` and update the ADK `session.state` reference before invoking the runner. |
+
 ---
 
 ## 2. Step-by-Step Implementation
