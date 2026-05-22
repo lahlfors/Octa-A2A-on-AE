@@ -149,7 +149,7 @@ def main():
         print("Spinning up a fresh create instance on Agent Engine...")
         remote_agent = client.agent_engines.create(agent=a2a_agent, config=config)
         
-    print(f"✓ Agent successfully deployed: {remote_agent.name}")
+    print(f"✓ Agent successfully deployed: {remote_agent.api_resource.name}")
 
     # 6. Register the Agent with Gemini Enterprise (if app_id configured)
     if app_id and agent_auth:
