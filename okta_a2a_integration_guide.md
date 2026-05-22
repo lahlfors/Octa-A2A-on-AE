@@ -38,18 +38,31 @@ sequenceDiagram
 
 ### 🔑 How the Token is Accessed (The Gap Solved)
 
-The managed Okta token is passed from Gemini Enterprise to the Agent Engine container via standard HTTP headers. Under the `a2a-sdk` framework:
+The managed Okta token is forwarded from Gemini Enterprise to your hosted Agent Engine container. Under production conditions, this triggers a critical **GCP IAM security conflict**:
 
-1.  **Starlette Request Context**: The `DefaultServerCallContextBuilder` builds a `ServerCallContext` for every request. It preserves all request headers in `context.call_context.state['headers']` and the request authentication credentials in `context.call_context.state['auth']`.
-2.  **Executor-to-Session Mapping**: In our custom `AdkAgentToA2AExecutor.execute` method, we retrieve the `RequestContext`. We extract the token from these state objects and write it explicitly into the ADK session state:
+#### ⚠️ The GCP IAM Endpoint Conflict
+When Vertex AI Agent Engine endpoints are secured using IAM (Google Cloud's standard access control), the platform expects a Google-signed OAuth token inside the HTTP `Authorization: Bearer <GCP_Token>` header to authorize the caller (Gemini Enterprise). 
+
+If Gemini Enterprise passes the 3P Okta token inside the `Authorization` header, the GCP IAM gateway will intercept the request, attempt to validate the Okta credential against Google, fail, and reject the call with a `401 Unauthorized` or `403 Forbidden` error **before it ever reaches your Starlette container**.
+
+#### 🛡️ The Custom Header Bypass Resolution
+To completely bypass this IAM conflict, we prioritize extracting the Okta credentials from a custom, application-specific header (**`X-App-Token`** or **`X-A2A-Token`**) which safely flows past the GCP IAM layer:
+
+1.  **Multi-Tier Header Extraction**: In our custom `AdkAgentToA2AExecutor.execute` method, we retrieve the `RequestContext` and scan the headers in the following order:
+    *   Check **`X-App-Token`** or **`X-A2A-Token`** (standard custom bypass headers used in secure production environments).
+    *   Fallback to **`Authorization: Bearer`** (standard header used in unauthenticated or local test sandboxes).
+    *   Fallback to `context.metadata.get("access_token")`.
+2.  **Executor-to-Session Mapping**: Once extracted, we persist the token inside the ADK session state:
     ```python
     session.state["auth_token"] = extracted_token
+    # Persist updated session state for scaling container compatibility
+    await self._runner.session_service.update_session(session)
     ```
 3.  **Tool Injection**: Any tool declared in our agent (e.g. `get_current_time`) can declare a `tool_context: ToolContext` parameter. The ADK runner injects this context, allowing the tool to read the token seamlessly:
     ```python
     auth_token = tool_context.state.get("auth_token")
     ```
-    This fully resolves the "Gap" without requiring hardcoded headers or breaking platform-level container security!
+    This fully resolves the "Gap" and bypasses the GCP IAM conflict while keeping complete container security!
 
 ### 🎛️ Architectural Taxonomy: Base A2A vs. High-Level ADK Toolsets
 
