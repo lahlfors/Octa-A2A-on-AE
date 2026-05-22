@@ -8,11 +8,12 @@ It solves the "Token Gap"—illustrating exactly how Gemini Enterprise-provision
 
 ## 🗺️ Project Structure & Blueprint
 
-*   [`agent.py`](agent.py): Hages local geocoding and timezone tools, the debug auth session tool, and the `OktaTimeAgent` class.
+*   [`agent.py`](agent.py): Houses local geocoding and timezone tools, the debug auth session tool, and the `OktaTimeAgent` class.
 *   [`agent_executor.py`](agent_executor.py): Implements `AdkAgentToA2AExecutor` which parses Bearer tokens from request context headers and structures flat Part messages.
 *   [`deploy_ae.py`](deploy_ae.py): Automated script for Reasoning Engine SDK deployment and assistant registration.
 *   [`test_okta_a2a.py`](test_okta_a2a.py): Comprehensive local mock unit testing suite.
 *   [`okta_a2a_integration_guide.md`](okta_a2a_integration_guide.md): Detailed step-by-step integration, configuration, and architectural guide.
+*   [`cloud_deployment_and_surfacing_analysis.md`](cloud_deployment_and_surfacing_analysis.md): Detailed step-by-step cloud architecture, deployment, and assistant surfacing plan.
 *   [`.env.example`](.env.example): Environment variables layout for local configurations.
 
 ---
