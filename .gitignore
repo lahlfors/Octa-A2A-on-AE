@@ -1,0 +1,25 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Local Configuration
+.env
+.env.local
+.env.production
+.env.development
+.env.staging
+
+# OS-specific
+.DS_Store
+
+# ADK session files and logs
+.adk/
+*.log
+dependencies.tar.gz
