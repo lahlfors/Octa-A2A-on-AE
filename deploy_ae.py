@@ -15,6 +15,8 @@
 # --- A2A SDK v1.x Compatibility Monkeypatch ---
 try:
     import a2a.types as a2a_types
+    
+    # 1. Monkeypatch TransportProtocol if missing
     if not hasattr(a2a_types, "TransportProtocol"):
         class DummyTransportProtocol:
             http_json = "HTTP_JSON"
@@ -23,6 +25,28 @@ try:
             SSE = "SSE"
         a2a_types.TransportProtocol = DummyTransportProtocol
         print("✓ Applied TransportProtocol monkeypatch for a2a-sdk compatibility.")
+
+    # 2. Monkeypatch AgentCard properties and url redirection
+    if hasattr(a2a_types, "AgentCard"):
+        AgentCard = a2a_types.AgentCard
+        AgentCard.preferred_transport = None
+        AgentCard.supports_authenticated_extended_card = False
+        
+        orig_set = AgentCard.__setattr__
+        def custom_setattr(self, name, val):
+            if name == "url":
+                self.documentation_url = val
+            else:
+                orig_set(self, name, val)
+        AgentCard.__setattr__ = custom_setattr
+
+        orig_get = AgentCard.__getattribute__
+        def custom_getattr(self, name):
+            if name == "url":
+                return self.documentation_url
+            return orig_get(self, name)
+        AgentCard.__getattribute__ = custom_getattr
+        print("✓ Applied AgentCard attributes monkeypatch for a2a-sdk compatibility.")
 except ImportError:
     pass
 # ----------------------------------------------
